@@ -25,7 +25,7 @@ echo '                ||     ||               ';
 
 # Change directory to where .ovpn files are
 
-ConfigDirectory="/home/djwilcox/Documents/vpn"
+ConfigDirectory="/home/djwilcox/git/openvpn"
 cd $ConfigDirectory
 
 
