@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 # openvpn split route, dns and socks5 proxy
 #==========================================
 
