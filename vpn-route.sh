@@ -48,7 +48,7 @@ select fileName in Quit $fileList; do
 	break
 	;;
 	$fileName )
-	/usr/bin/openvpn --config ${fileName}
+	/usr/bin/openvpn --auth-nocache --config ${fileName}
 	break
 	;;
 	* )

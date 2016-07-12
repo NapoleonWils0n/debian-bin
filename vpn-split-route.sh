@@ -48,7 +48,7 @@ select fileName in Quit $fileList; do
 	break
 	;;
 	$fileName )
-	/usr/bin/openvpn --route-nopull --script-security 2 --up /home/djwilcox/bin/openvpn-up.sh --down /home/djwilcox/bin/openvpn-down.sh --config ${fileName}
+	/usr/bin/openvpn --auth-nocache --route-nopull --script-security 2 --up /home/djwilcox/bin/openvpn-up.sh --down /home/djwilcox/bin/openvpn-down.sh --config ${fileName}
 	break
 	;;
 	* )
