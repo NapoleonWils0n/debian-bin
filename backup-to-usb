@@ -1,15 +1,25 @@
 #!/bin/sh
 
-# backup home to usb
-rsync -aAXvz --ignore-errors --delete --progress \
---exclude Downloads \
---exclude Music \
---exclude snap \
---exclude torrents \
---exclude Videos \
---exclude .cache \
---exclude .dbus \
---exclude .mozilla \
---exclude .kodi \
---exclude .local/share/flatpak \
-/home/djwilcox /media/djwilcox/backup
+# Define the backup directory
+BACKUP_DIR="/media/djwilcox/backup"
+
+# Check if the backup directory is mounted
+if mountpoint -q "$BACKUP_DIR"; then
+    echo "Backup directory '$BACKUP_DIR' is mounted. Starting backup..."
+    # backup home to usb
+    rsync -aAXvz --ignore-errors --delete --progress \
+    --exclude Downloads \
+    --exclude Music \
+    --exclude snap \
+    --exclude torrents \
+    --exclude Videos \
+    --exclude .cache \
+    --exclude .dbus \
+    --exclude .mozilla \
+    --exclude .kodi \
+    --exclude .local/share/flatpak \
+    /home/djwilcox "$BACKUP_DIR"
+else
+    echo "Backup directory '$BACKUP_DIR' is not mounted. Exiting script."
+    exit 1
+fi
