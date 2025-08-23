@@ -63,7 +63,7 @@ shift $((OPTIND-1))
 #===============================================================================
 
 dash () {
-url=$(yt-dlp -f "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720]" -g --no-playlist "${input}" 2> /dev/null)
+url=$(yt-dlp -f "bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080]" -g --no-playlist "${input}" 2> /dev/null)
 video_url=$(echo "${url}" | awk 'BEGIN{ RS ="" ; FS ="\n" }{print $1}')
 audio_url=$(echo "${url}" | awk 'BEGIN{ RS ="" ; FS ="\n" }{print $2}')
 
