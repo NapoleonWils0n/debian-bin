@@ -56,7 +56,7 @@ def find_streams_from_url(video_url, resolution):
         print(f"An unexpected error occurred: {e}", file=sys.stderr)
         return None, None
 
-def stream_with_ffmpeg_mpv(video_url, audio_url, cache_size):
+def stream_with_ffmpeg_mpv(video_url, audio_url, cache_size, fullscreen_screen):
     """
     Combines the given video and audio streams using ffmpeg and pipes the output
     to mpv for playback.
@@ -65,6 +65,7 @@ def stream_with_ffmpeg_mpv(video_url, audio_url, cache_size):
         video_url (str): The URL of the video stream.
         audio_url (str): The URL of the audio stream.
         cache_size (int): The cache size for mpv in kilobytes.
+        fullscreen_screen (int): The screen to use for fullscreen playback.
     """
     # ffmpeg command to combine video and audio and pipe to stdout
     ffmpeg_command = [
@@ -81,16 +82,20 @@ def stream_with_ffmpeg_mpv(video_url, audio_url, cache_size):
         "pipe:1"  # Pipe the output to stdout
     ]
 
-    # mpv command to read from stdin, now with a configurable cache size
+    # mpv command to read from stdin, now with a configurable cache size and screen
     mpv_command = [
         "mpv",
         "--cache", str(cache_size),
         "--no-terminal",
         "--fs",
-        "--fs-screen=1",
+        f"--fs-screen={fullscreen_screen}",
         "-"  # Read from stdin
     ]
     
+    # Use Popen for both processes so we can manage them
+    ffmpeg_process = None
+    mpv_process = None
+
     try:
         # Start the ffmpeg process
         ffmpeg_process = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -98,18 +103,22 @@ def stream_with_ffmpeg_mpv(video_url, audio_url, cache_size):
         # Start the mpv process and connect its stdin to ffmpeg's stdout
         mpv_process = subprocess.Popen(mpv_command, stdin=ffmpeg_process.stdout)
         
-        # Wait for both processes to complete
-        ffmpeg_process.stdout.close()  # Allow ffmpeg_process to receive a SIGPIPE
-        ffmpeg_process.wait()
+        # Wait for mpv to finish
         mpv_process.wait()
 
     except FileNotFoundError:
         print("Error: 'ffmpeg' or 'mpv' command not found. Please ensure they are installed and in your system's PATH.", file=sys.stderr)
     except Exception as e:
         print(f"An unexpected error occurred during streaming: {e}", file=sys.stderr)
+    finally:
+        # Ensure processes are terminated cleanly, regardless of how the script exits
+        if mpv_process and mpv_process.poll() is None:
+            mpv_process.terminate()
+        if ffmpeg_process and ffmpeg_process.poll() is None:
+            ffmpeg_process.terminate()
 
 def main():
-    parser = argparse.ArgumentParser(description="Stream a YouTube video with resolution and cache options.")
+    parser = argparse.ArgumentParser(description="Stream a YouTube video with resolution, cache, and fullscreen options.")
     parser.add_argument(
         '-i', '--input', 
         required=True, 
@@ -123,12 +132,19 @@ def main():
         choices=[2160, 1440, 1080, 720, 480, 360, 240, 144],
         help="The desired video resolution. Defaults to 1080p."
     )
-    # New argument for cache size, with a more descriptive help message
+    # Argument for cache size, with a more descriptive help message
     parser.add_argument(
         '-c', '--cache',
         type=int,
         default=2048,
         help="MPV cache size in kilobytes. Accepts a value between 0 and 8192."
+    )
+    # New argument for the fullscreen screen
+    parser.add_argument(
+        '-f', '--fullscreen-screen',
+        type=int,
+        default=1,
+        help="The screen number to use for fullscreen playback. Defaults to 1 (primary display)."
     )
     
     args = parser.parse_args()
@@ -141,7 +157,11 @@ def main():
     video_url, audio_url = find_streams_from_url(args.input, args.resolution)
 
     if video_url and audio_url:
-        stream_with_ffmpeg_mpv(video_url, audio_url, args.cache)
+        try:
+            stream_with_ffmpeg_mpv(video_url, audio_url, args.cache, args.fullscreen_screen)
+        except KeyboardInterrupt:
+            print("\nStreaming stopped by user.")
+            sys.exit(0)
     else:
         print("Could not find suitable video and audio streams. Cannot proceed with streaming.")
 
