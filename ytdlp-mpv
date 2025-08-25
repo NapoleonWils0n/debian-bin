@@ -3,6 +3,7 @@ import subprocess
 import argparse
 import sys
 import os
+import signal
 
 def find_streams_from_url(video_url, resolution, show_output):
     """
@@ -104,7 +105,8 @@ def get_video_duration(video_url, show_output):
 def stream_with_ffmpeg_mpv(video_url, audio_url, cache_size, fullscreen_screen, duration, show_output):
     """
     Combines the given video and audio streams using ffmpeg and pipes the output
-    to mpv for playback.
+    to mpv for playback. This version includes a more robust process
+    termination to prevent hanging ffmpeg processes.
 
     Args:
         video_url (str): The URL of the video stream.
@@ -115,16 +117,8 @@ def stream_with_ffmpeg_mpv(video_url, audio_url, cache_size, fullscreen_screen, 
         show_output (bool): If True, prints status messages to the terminal.
     """
     
-    # We always redirect stdout and stderr to a pipe to prevent mpv from writing
-    # directly to the main terminal, which would break the single-line output.
-    # The output will then be handled by the parent process.
-    if show_output:
-        stdout_target = sys.stdout
-        stderr_target = sys.stderr
-    else:
-        # If output is off, redirect to DEVNULL
-        stdout_target = subprocess.DEVNULL
-        stderr_target = subprocess.DEVNULL
+    stdout_target = sys.stdout if show_output else subprocess.DEVNULL
+    stderr_target = sys.stderr if show_output else subprocess.DEVNULL
 
     # ffmpeg command to combine video and audio and pipe to stdout
     ffmpeg_command = [
@@ -157,31 +151,22 @@ def stream_with_ffmpeg_mpv(video_url, audio_url, cache_size, fullscreen_screen, 
     if duration:
         mpv_command.append(f"--length={duration}")
 
-    # Use Popen for both processes so we can manage them
     ffmpeg_process = None
     mpv_process = None
 
     try:
-        # Start the ffmpeg process
-        ffmpeg_process = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # Start the ffmpeg process in a new process group. This is key for robust termination.
+        ffmpeg_process = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
         
         # Start the mpv process and connect its stdin to ffmpeg's stdout
         mpv_process = subprocess.Popen(mpv_command, stdin=ffmpeg_process.stdout, stdout=stdout_target, stderr=stderr_target)
         
-        # Close the stdout pipe in the parent process immediately to avoid deadlocks.
+        # Close the stdout pipe in the parent process immediately. This is crucial for a clean exit.
         ffmpeg_process.stdout.close()
         
-        # We need to wait for mpv to complete first
+        # Wait for mpv to exit. This is a blocking call.
         mpv_process.wait()
         
-        # Once mpv exits, explicitly terminate the ffmpeg process
-        # Check if ffmpeg is still running
-        if ffmpeg_process.poll() is None:
-            ffmpeg_process.terminate()
-
-        # Wait for ffmpeg to finish its cleanup
-        ffmpeg_process.wait()
-
     except FileNotFoundError:
         if show_output:
             print("Error: 'ffmpeg' or 'mpv' command not found. Please ensure they are installed and in your system's PATH.", file=sys.stderr)
@@ -189,11 +174,18 @@ def stream_with_ffmpeg_mpv(video_url, audio_url, cache_size, fullscreen_screen, 
         if show_output:
             print(f"An unexpected error occurred during streaming: {e}", file=sys.stderr)
     finally:
-        # Ensure processes are terminated cleanly, regardless of how the script exits
+        # Failsafe to ensure no processes are left hanging.
         if mpv_process and mpv_process.poll() is None:
-            mpv_process.terminate()
+            mpv_process.kill()
+        
+        # Terminate the entire ffmpeg process group
         if ffmpeg_process and ffmpeg_process.poll() is None:
-            ffmpeg_process.terminate()
+            os.killpg(ffmpeg_process.pid, signal.SIGKILL)
+            
+        # Wait for ffmpeg to finish its cleanup
+        if ffmpeg_process:
+            ffmpeg_process.wait()
+
 
 def main():
     parser = argparse.ArgumentParser(description="Stream a YouTube video with resolution, cache, and fullscreen options.")
@@ -249,10 +241,13 @@ def main():
         try:
             stream_with_ffmpeg_mpv(video_url, audio_url, args.cache, args.fullscreen_screen, duration, show_output)
         except KeyboardInterrupt:
-            print("\nStreaming stopped by user.")
+            if show_output:
+                print("\nStreaming stopped by user.")
             sys.exit(0)
     else:
-        print("Could not find suitable video and audio streams. Cannot proceed with streaming.")
+        # Only print this error if output is explicitly turned on.
+        if show_output:
+            print("Could not find suitable video and audio streams. Cannot proceed with streaming.", file=sys.stderr)
 
 if __name__ == '__main__':
     main()
