@@ -82,13 +82,14 @@ def stream_with_ffmpeg_mpv(video_url, audio_url, cache_size, fullscreen_screen):
         "pipe:1"  # Pipe the output to stdout
     ]
 
-    # mpv command to read from stdin, now with a configurable cache size and screen
+    # mpv command to read from stdin, with a configurable cache size and screen
+    # The fix is to use "--demuxer-max-bytes" which is the correct syntax for piped streams
     mpv_command = [
         "mpv",
-        "--cache", str(cache_size),
-        "--no-terminal",
+        f"--demuxer-max-bytes={cache_size}k",
         "--fs",
         f"--fs-screen={fullscreen_screen}",
+        "--force-seekable=yes",
         "-"  # Read from stdin
     ]
     
