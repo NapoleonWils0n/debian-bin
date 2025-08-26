@@ -63,46 +63,7 @@ def find_streams_from_url(video_url, resolution, show_output):
             print(f"An unexpected error occurred: {e}", file=sys.stderr)
         return None, None
 
-def get_video_duration(video_url, show_output):
-    """
-    Calls yt-dlp to get the total duration of the video.
-
-    Args:
-        video_url (str): The URL of the YouTube video.
-        show_output (bool): If True, prints status messages to the terminal.
-
-    Returns:
-        float: The video duration in seconds, or None if not found.
-    """
-    try:
-        command = [
-            "yt-dlp",
-            "--get-duration",
-            "--no-playlist",
-            video_url
-        ]
-        process = subprocess.run(command, capture_output=True, text=True, check=True)
-        # The output is expected to be a single string representing the duration
-        duration_string = process.stdout.strip()
-        
-        # Convert duration to seconds for mpv --length
-        if ':' in duration_string:
-            parts = duration_string.split(':')
-            seconds = int(parts[-1])
-            if len(parts) > 1:
-                seconds += int(parts[-2]) * 60
-            if len(parts) > 2:
-                seconds += int(parts[-3]) * 3600
-            return float(seconds)
-        else:
-            return float(duration_string)
-            
-    except Exception as e:
-        if show_output:
-            print(f"Could not get video duration: {e}", file=sys.stderr)
-        return None
-
-def stream_with_ffmpeg_mpv(video_url, audio_url, cache_size, fullscreen_screen, duration, show_output):
+def stream_with_ffmpeg_mpv(video_url, audio_url, cache_size, fullscreen_screen, show_output):
     """
     Combines the given video and audio streams using ffmpeg and pipes the output
     to mpv for playback. This version includes a more robust process
@@ -113,7 +74,6 @@ def stream_with_ffmpeg_mpv(video_url, audio_url, cache_size, fullscreen_screen, 
         audio_url (str): The URL of the audio stream.
         cache_size (int): The cache size for mpv in kilobytes.
         fullscreen_screen (int): The screen to use for fullscreen playback.
-        duration (float): The total duration of the video in seconds.
         show_output (bool): If True, prints status messages to the terminal.
     """
     
@@ -136,8 +96,6 @@ def stream_with_ffmpeg_mpv(video_url, audio_url, cache_size, fullscreen_screen, 
     ]
 
     # mpv command to read from stdin, with a configurable cache size and screen
-    # As per user's request, using the --cache flag. Note that --demuxer-max-bytes is the modern
-    # equivalent for piped streams, but this will work for now.
     mpv_command = [
         "mpv",
         "-",  # Read from stdin
@@ -146,10 +104,6 @@ def stream_with_ffmpeg_mpv(video_url, audio_url, cache_size, fullscreen_screen, 
         f"--fs-screen={fullscreen_screen}",
         "--force-seekable=yes",
     ]
-    
-    # Add the duration flag if available
-    if duration:
-        mpv_command.append(f"--length={duration}")
 
     ffmpeg_process = None
     mpv_process = None
@@ -235,11 +189,10 @@ def main():
     show_output = (args.terminal_output.lower() == 'on')
 
     video_url, audio_url = find_streams_from_url(args.input, args.resolution, show_output)
-    duration = get_video_duration(args.input, show_output)
 
     if video_url and audio_url:
         try:
-            stream_with_ffmpeg_mpv(video_url, audio_url, args.cache, args.fullscreen_screen, duration, show_output)
+            stream_with_ffmpeg_mpv(video_url, audio_url, args.cache, args.fullscreen_screen, show_output)
         except KeyboardInterrupt:
             if show_output:
                 print("\nStreaming stopped by user.")
