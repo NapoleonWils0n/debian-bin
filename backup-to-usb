@@ -17,7 +17,7 @@ if mountpoint -q "$BACKUP_DIR"; then
     --exclude .dbus \
     --exclude .mozilla \
     --exclude .kodi \
-    --exclude .local/share/flatpak \
+    --exclude .local \
     /home/djwilcox "$BACKUP_DIR"
 else
     echo "Backup directory '$BACKUP_DIR' is not mounted. Exiting script."
