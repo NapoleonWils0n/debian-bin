@@ -150,9 +150,7 @@ one_stream_trim () {
 
 # start, end, or both were provided
 if [ -n "${start}" ] || [ -n "${end}" ]; then
-    flush_pipe
-    one_stream_trim
+    flush_pipe && one_stream_trim
 else
-    flush_pipe
-    one_stream
+    flush_pipe && one_stream
 fi

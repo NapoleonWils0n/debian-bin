@@ -211,14 +211,14 @@ audio_url=$(echo "${url}" | awk 'BEGIN{ RS ="" ; FS ="\n" }{print $2}')
 #===============================================================================
 
 if [ -n "${start}" ] || [ -n "${end}" ]; then
-    flush_pipe
+    flush_pipe &&
     case "${streamcount}" in
         1) one_stream_trim ;;
         2) two_streams_trim ;;
         *) usage ;;
     esac
 else
-    flush_pipe
+    flush_pipe &&
     case "${streamcount}" in
         1) one_stream ;;
         2) two_streams ;;
